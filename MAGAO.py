@@ -49,6 +49,8 @@ class MAGAOData(Data):
         calibrate_output(): calibrates flux of self.output
     """
 
+    #I'm marking things that I'm not sure if we need with a "#!"
+
     ##########################
    ### Class Initialization ###
     ##########################
@@ -69,7 +71,97 @@ class MAGAOData(Data):
     try:
         config.read(configfile)
         #get pixel scale
-        lenselet_scale = float(config.get("instrument", "ifs_lenslet_scale")) #arcsecond/pixel
+        lenselet_scale = float(config.get("instrument", "ifs_lenslet_scale")) #!
         #get IFS rotation
-        ifs_rotation = float(config.get("instrument", "ifs_rotation")) #degrees
-        
+        ifs_rotation = float(config.get("instrument", "ifs_rotation"))
+        bands = ['HA'. 'CONT']
+        for band in bands:
+            centralwave[band] = float(config.get("instrument", "cen_wave_{0}".format(band)))
+            fpm_diam[band] = float(config.get("instrument", "fpm_dian_{0}".format(band))) #!
+            flux_zeropt[band] = float(config.get("instrument", "zero_pt_flux_{0}".format(band))) #!
+        observatory_latitude = float(vonfig.get("observatory", "observatory_lat"))
+    except ConfigParser.Error as e:
+        print("Error reading MAGAO configuration file: {0}".format(e.message))
+        raise e
+    
+    #########################
+   ###    Constructors     ###
+    #########################
+    def __init__(self, filepaths=None):
+        """
+        Initialization code for MAGAOData
+        """
+        super(MAGAOData, self).__init__()
+        self._output = None
+        if filepaths is None:
+            self._input = None
+            self._centers = None
+            self._filenums = None
+            self._filenames = None
+            self._PAs = None
+            self._wvs = None
+            self._wcs = None
+            self._IWA = None
+            self.spot_flux = None #!
+            self.star_flux = None
+            self.contrast_scaling = None
+            self.prihdrs = None
+            self.exthdrs = None
+        else:
+            self.readdata(filepaths)
+    
+    ##############################
+   ### Instance Required Fields ###
+    ##############################
+    @properrt
+    def input(self):
+        return self._input
+    @input.setter
+    def input(self, newval):
+        self._input = newval
+    
+    @property
+    def centers(self):
+        return self._centers
+    @centers.setter
+    def centers(self, newval):
+        self._centers = newval
+
+    @property
+    def PAs(self):
+        return self._PAs
+    @PAs.setter
+    def PAs(self, newval):
+        self._PAs = newval
+    
+    @property
+    def wvs(self):
+        return self._wvs
+    @wvs.setter
+    def wvs(self, newval):
+        self._wvs = newval
+    
+    @property
+    def wcs(self):
+        return self._wcs
+    @wcs.setter
+    def wcs(self, newval):
+        self._wcs = newval
+
+    @property
+    def IWA(self):
+        return self._IWA
+    @IWA.setter
+    def IWA(self, newval):
+        self._IWA = newval
+    
+    @property
+    def output(self):
+        return self._output
+    @output.setter
+    def output(self, newval):
+        self._output = newval
+
+    ###################
+   ###    Methods    ###
+    ###################
