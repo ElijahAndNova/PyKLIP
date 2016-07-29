@@ -165,3 +165,105 @@ class MAGAOData(Data):
     ###################
    ###    Methods    ###
     ###################
+        
+    def readdata(self, filepaths):
+        """
+        Method to open and read a list of MAGAO data
+        """
+        if isinstance(filepaths, str):
+            filepaths = [filepaths]
+
+        data = []
+        filenums = []
+        filenaes = []
+        rot_angles = []
+        wvs = []
+        centers = []
+        wcs_hdrs = []
+        star_fluxes = []
+        spot_fluxes = [] #!
+        prihdrs = []
+        
+        for index, filepath in enumerate(filepaths):
+            cube, center, pa, wv, astr_hdrs, filt_band, fpm_band, ppm_band, star_flux, spot_flux, prihdr, exthdr = _magao_process_file(filepath, index)
+        
+            data.append(cube)
+            centers.append(center)
+            star_fluxes.append(star_flux)
+            spot_fluxes.append(spot_flux) #!
+            rot_angles.append(pa)
+            wvs.append(wv)
+            filenums.append(np.ones(pa.shape[0]) * index)
+            wcs_hdrs.append(astr_hdrs) #!
+            prihdrs.append(prihdr)
+            filenames.append([filepath for i in range(pa.shape[0])])
+            
+        data = np.array(data)
+        dims = data.shape
+        data = data.reshape([dims[0] * dims[1], dims[2], dims[3]])
+        filenums = np.array(filenums).reshape([dims[0] * dims[1]])
+        filenames = np.array(filenames).reshape([dims[0] * dims[1]])
+        rot_angles = np.array(rot_angles).reshape([dims[0] * dims[1]])
+        wvs = np.array(wvs).reshape([dims[0] * dims[1]])
+        wcs_hdrs = np.array(wcs_hdrs).reshape([dims[0] * dims[1]])
+        centers = np.array(centers).reshape([dims[0] * dims[1], 2])
+        star_fluxes = np.array(star_fluxes).reshape([dims[0] * dims[1]])
+        spot_fluxes = np.array(spot_fluxes).reshape([dims[0] * dims[1]]) #!
+
+        self._input = data
+        self._centers = centers
+        self._filenums = filenums
+        self._filenames = filenames
+        self._PAs = rot_angles
+        self._wvs = wvs
+        self._wcs = None #wvs_hdrs
+        self.spot_flux = spot_fluxes
+        self.IWA = MAGAOData.fpm_diam[fpm_band] / 2.0 #!
+        self.star_flux = star_fluxes
+        self.contrast_scaling = 1./star_fluxes
+        self.prihdrs = prihdrs
+
+        
+    def _magao_process_file(filepath, filetype):
+        #filetype == 0 --> HA
+        #filetype == 1 --> CONT
+        print("Reading File: {0}".format(filepath))
+        hdulist = fits.open(os.getcwd()+"/rotoff_preproc.fits")
+        rotangles = hdulist[0].data
+        rotangles = np.array(rotangles)
+        hdulist.close()
+        hdulist = fits.open(filepath)
+        try:
+            cube = hdulist[0].data
+            exthdr = None
+            prihdr = hdulist[0].header
+            
+            if filetype == 0:
+                filt_band = "H-Alpha"
+            elif filetype == 1:
+                filt_band = "Continuum"
+            
+            fpm_band = filt_band
+            ppm_band = None
+            
+            wvs = [1.0]
+            center = [[225,225]]
+            
+            dims = cube.shape
+            x, y = np.meshgrid(np.arange(dims[1], dtype=np.float32), np.arange(dims[0], dtype=np.float32))
+            nx = center[0][0] - (x - center[0][0])
+            minval = np.min([np.nanmin(cube), 0.0])
+            flipped.cube = ndimage.map_coordinates(np.copy(cube), [y, nx], cval=minval * 5.0)
+            
+            star_flux = calc_starflux(flipped_cube, center) #WRITE THIS FUNCTION
+            cube = flipped_cube.reshape([1, flipped_cube.shape[0], flipped_cube.shape[1]])
+            parang = rotangles
+            astr_hdrs = np.repeat(None, 1)
+            spot_fluxes = [[1]] #!
+        finally:
+            hdulist.close()
+        
+        return cube, center, parang, wvs, astr_hdrs, filt_band, fpm_band, ppm_band, star_flux, spot_fluxes, prihdr, exthdr
+
+
+
